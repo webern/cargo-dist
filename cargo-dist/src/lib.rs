@@ -26,6 +26,7 @@ use config::{ChecksumStyle, CiStyle, CompressionImpl, Config, ZipStyle};
 use semver::Version;
 use tracing::{info, warn};
 
+use crate::fix_cross_path::fix_cross_path;
 use errors::*;
 pub use init::{do_init, InitArgs};
 use miette::{miette, Context, IntoDiagnostic};
@@ -35,6 +36,7 @@ pub mod backend;
 pub mod changelog;
 pub mod config;
 pub mod errors;
+mod fix_cross_path;
 mod init;
 pub mod tasks;
 #[cfg(test)]
@@ -340,7 +342,7 @@ fn build_cargo_target(dist_graph: &DistGraph, target: &CargoBuildStep) -> Result
         target.target_triple, target.profile
     );
 
-    let mut command = Command::new(&dist_graph.tools.cargo.cmd);
+    let mut command = Command::new("cross");
     command
         .arg("build")
         .arg("--profile")
@@ -422,6 +424,7 @@ fn build_cargo_target(dist_graph: &DistGraph, target: &CargoBuildStep) -> Result
                 // Hey we got an executable, is it one we wanted?
                 if let Some(new_exe) = artifact.executable {
                     info!("got a new exe: {}", new_exe);
+                    let new_exe = fix_cross_path(new_exe);
                     let package_id = artifact.package_id.to_string();
                     let exe_name = new_exe.file_stem().unwrap();
 
@@ -435,7 +438,7 @@ fn build_cargo_target(dist_graph: &DistGraph, target: &CargoBuildStep) -> Result
                             let is_symbols = path.extension().map(|e| e == "pdb").unwrap_or(false);
                             if is_symbols {
                                 // These are symbols we expected! Save the path.
-                                *src_sym_path = path;
+                                *src_sym_path = fix_cross_path(path);
                             }
                         }
                     }
